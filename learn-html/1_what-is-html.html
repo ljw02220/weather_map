@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Weather Map - Mobilink</title>
+    <link rel="stylesheet" href="styles.css" />
+
+    <!-- Google 지도 API 사용 스크립트 추가 -->
+    <script
+      src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBgF3fN2BID5ZGN9whXZJFLRyuDQZYLoVo&callback=initMap"
+      async
+      defer
+    ></script>
+
+    <!-- jQuery 추가 -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+      var map;
+      var markers = [];
+      var infoWindow;
+      var weatherIconElement;
+
+      function initMap() {
+        var mapOptions = {
+          center: { lat: 37.562161, lng: 127.035199 },
+          zoom: 12,
+        };
+        map = new google.maps.Map(document.getElementById('map'), mapOptions);
+        infoWindow = new google.maps.InfoWindow();
+        weatherIconElement = document.getElementById('weatherIcon');
+        heatWarningElement = document.getElementById('heatWarning');
+        rainWarningElement = document.getElementById('rainWarning'); // 호우 주의보 엘리먼트 가져오기
+        showMarkers();
+      }
+
+      var heatWarningElement; // 전역 변수로 선언하여 이전 경보 엘리먼트를 저장
+      var rainWarningElement;
+
+      function showHeatWarning(temperature) {
+        // 이전 경보 엘리먼트 제거
+        if (heatWarningElement) {
+          heatWarningElement.parentNode.removeChild(heatWarningElement);
+        }
+
+        // 새로운 경보 엘리먼트 생성
+        heatWarningElement = document.createElement('div');
+        heatWarningElement.id = 'heatWarning';
+        heatWarningElement.className = 'heat-warning';
+
+        // 온도에 따라 다른 멘트 표시
+        if (temperature >= 28) {
+          heatWarningElement.innerHTML =
+            '<div style="background-color: rgba(255, 0, 0, 0.7); color: white; font-size: 20px;">폭염경보: 현재 누르신 지역은 폭염경보가 발령 중입니다. (' +
+            temperature.toFixed(1) +
+            '°C) <br> !! 킥보드를 사용하지 마세요. </div>';
+        } else if (temperature >= 27) {
+          heatWarningElement.innerHTML =
+            '<div style="background-color: rgba(255, 165, 0, 0.8); color: white; font-size: 20px;">폭염주의보: 현재 누르신 지역은 폭염주의보가 발령 중입니다. (' +
+            temperature.toFixed(1) +
+            '°C) <br> ! 킥보드 사용을 자제하세요. </div>';
+        } else {
+          // 온도가 30도 미만인 경우에 대한 처리를 추가할 수 있습니다.
+          heatWarningElement.innerHTML = '';
+        }
+
+        map.controls[google.maps.ControlPosition.TOP_LEFT].push(
+          heatWarningElement
+        );
+      }
+
+      function showRainWarning(weatherCondition) {
+        // 호우 주의보 엘리먼트 제거
+        if (rainWarningElement) {
+          rainWarningElement.parentNode.removeChild(rainWarningElement);
+        }
+
+        // 새로운 호우 주의보 엘리먼트 생성
+        rainWarningElement = document.createElement('div');
+        rainWarningElement.id = 'rainWarning';
+        rainWarningElement.className = 'rain-warning';
+
+        // 날씨 조건에 따라 다른 멘트 표시
+        if (weatherCondition.includes('shower rain')) {
+          rainWarningElement.innerHTML =
+            '<div style="background-color: rgba(135,206,250, 0.7); color: white; font-size: 20px;">현재 누르신 지역은 소나기가 내리고 있습니다. <br> ! 킥보드 대신 대중교통을 사용하세요. </div>';
+        } else if (weatherCondition.includes('light rain')) {
+          rainWarningElement.innerHTML =
+            '<div style="background-color: rgba(0,191,255, 0.7); color: white; font-size: 20px;">현재 누르신 지역은 비가 내리고 있습니다. <br> ! 킥보드 대신 대중교통을 사용하세요. </div>';
+        } else if (weatherCondition.includes('moderate rain')) {
+          rainWarningElement.innerHTML =
+            '<div style="background-color: rgba(30,144,255, 0.7); color: white; font-size: 20px;">호우주의보 : 현재 누르신 지역은 호우주의보가 발령 중입니다 <br> ! 킥보드 대신 대중교통을 사용하세요. </div>';
+        } else if (weatherCondition.includes('heavy intensity rain')) {
+          rainWarningElement.innerHTML =
+            '<div style="background-color: rgba(0,0,255, 0.7); color: white; font-size: 20px;">호우경보 : 현재 누르신 지역은 호우경보가 발령 중입니다. <br> ! 킥보드 대신 대중교통을 사용하세요. </div>';
+        } else if (weatherCondition.includes('Thunderstorm')) {
+          rainWarningElement.innerHTML =
+            '<div style="background-color: rgba(0,0,255, 0.7); color: white; font-size: 20px;">현재 누르신 지역은 천둥번개가 치고 있습니다. <br> ! 킥보드 대신 대중교통을 사용하세요. </div>';
+        } else {
+          rainWarningElement.innerHTML = '';
+        }
+
+        map.controls[google.maps.ControlPosition.TOP_LEFT].push(
+          rainWarningElement
+        );
+      }
+
+      function createCustomOverlay(title) {
+        return new google.maps.OverlayView();
+      }
+
+      function showMarkers() {
+        var pharmacys = [
+          ['강남구', 37.517304, 127.047446],
+          ['강동구', 37.530087, 127.123901],
+          ['강북구', 37.643413, 127.011202],
+          ['강서구', 37.560996, 126.822692],
+          ['관악구', 37.467339, 126.945387],
+          ['광진구', 37.546716, 127.085758],
+          ['구로구', 37.494365, 126.856243],
+          ['금천구', 37.460546, 126.900819],
+          ['노원구', 37.652485, 127.075044],
+          ['도봉구', 37.669058, 127.032382],
+          ['동대문구', 37.581911, 127.054848],
+          ['동작구', 37.498834, 126.951601],
+          ['마포구', 37.559291, 126.908248],
+          ['서대문구', 37.577752, 126.939058],
+          ['서초구', 37.473266, 127.0312378],
+          ['성동구', 37.550924, 127.041079],
+          ['성북구', 37.605667, 127.017591],
+          ['송파구', 37.505599, 127.115274],
+          ['양천구', 37.524788, 126.855356],
+          ['영등포구', 37.522304, 126.91014],
+          ['용산구', 37.531281, 126.97903],
+          ['은평구', 37.619147, 126.927003],
+          ['종로구', 37.594881, 126.977338],
+          ['중구', 37.560127, 126.995967],
+          ['중랑구', 37.59776, 127.092892],
+        ];
+
+        for (var i = 0; i < pharmacys.length; i++) {
+          var title = pharmacys[i][0];
+          var lat = pharmacys[i][1];
+          var lng = pharmacys[i][2];
+
+          var marker = new google.maps.Marker({
+            position: { lat: lat, lng: lng },
+            map: map,
+            title: title,
+          });
+
+          function addClickEvent(marker) {
+            marker.addListener('mouseover', function () {
+              var lat = this.getPosition().lat();
+              var lng = this.getPosition().lng();
+
+              $.ajax({
+                url:
+                  'https://api.openweathermap.org/data/2.5/weather?units=metric&lat=' +
+                  lat +
+                  '&lon=' +
+                  lng +
+                  '&appid=5c3c3fc97003576692a15597ad94eba6',
+                type: 'GET',
+                dataType: 'json',
+                success: function (data) {
+                  var icon = weatherIconElement.src;
+                  var weatherDescription = data.weather[0].description;
+                  var temperature = data.main.temp;
+
+                  infoWindow.setContent(
+                    icon +
+                      weatherIconElement +
+                      '날씨: ' +
+                      weatherDescription +
+                      '<br>온도: ' +
+                      temperature.toFixed(1) +
+                      '°C'
+                  );
+
+                  if (data.weather[0].main == 'Clear') {
+                    weatherIconElement.src = 'icon/clear.png';
+                  } else if (data.weather[0].main == 'Few cloud') {
+                    weatherIconElement.src = 'icon/few_cloud.png';
+                  } else if (data.weather[0].main == 'Scattered cloud') {
+                    weatherIconElement.src = 'icon/scatter cloud.png';
+                  } else if (data.weather[0].main == 'Broken cloud') {
+                    weatherIconElement.src = 'icon/broken cloud.png';
+                  } else if (data.weather[0].main == 'Shower rain') {
+                    weatherIconElement.src = 'icon/shower rain.png';
+                  } else if (data.weather[0].main == 'Rain') {
+                    weatherIconElement.src = 'icon/rain.png';
+                  } else if (data.weather[0].main == 'Thunderstorm') {
+                    weatherIconElement.src = 'icon/thunderstorm.png';
+                  } else if (data.weather[0].main == 'Mist') {
+                    weatherIconElement.src = 'icon/mist.png';
+                  }
+
+                  // 폭염 여부 표시
+                  if (temperature >= 28) {
+                    infoWindow.setContent(
+                      '날씨: ' +
+                        weatherDescription +
+                        '<br>온도: ' +
+                        temperature.toFixed(1) +
+                        '°C<br><span style="color: red;">폭염 경보</span>'
+                    );
+                  } else if (temperature >= 27) {
+                    infoWindow.setContent(
+                      '날씨: ' +
+                        weatherDescription +
+                        '<br>온도: ' +
+                        temperature.toFixed(1) +
+                        '°C<br><span style="color: orange;">폭염 주의보</span>'
+                    );
+                  } else if (weatherDescription == 'shower rain') {
+                    infoWindow.setContent(
+                      '날씨: ' +
+                        weatherDescription +
+                        '<br>온도: ' +
+                        temperature.toFixed(1) +
+                        '°C<br><span style="color: rgb(135,206,250);">소나기</span>'
+                    );
+                  } else if (weatherDescription == 'light rain') {
+                    infoWindow.setContent(
+                      '날씨: ' +
+                        weatherDescription +
+                        '<br>온도: ' +
+                        temperature.toFixed(1) +
+                        '°C<br><span style="color: rgb(0,191,255);">비 주의</span>'
+                    );
+                  } else if (weatherDescription == 'moderate rain') {
+                    infoWindow.setContent(
+                      '날씨: ' +
+                        weatherDescription +
+                        '<br>온도: ' +
+                        temperature.toFixed(1) +
+                        '°C<br><span style="color: rgb(30,144,255);">호우 주의보</span>' +
+                        icon
+                    );
+                  } else if (weatherDescription == 'heavy intensity rain') {
+                    infoWindow.setContent(
+                      '날씨: ' +
+                        weatherDescription +
+                        '<br>온도: ' +
+                        temperature.toFixed(1) +
+                        '°C<br><span style="color: rgb(0,0,255);">호우 경보</span>'
+                    );
+                  } else {
+                    infoWindow.setContent(
+                      '날씨: ' +
+                        weatherDescription +
+                        '<br>온도: ' +
+                        temperature.toFixed(1) +
+                        '°C'
+                    );
+                  }
+
+                  // 날씨 정보를 가져온 후 폭염주의보 표시
+                  showHeatWarning(temperature);
+                  showRainWarning(weatherDescription);
+
+                  document.querySelector('.weather').style.display = 'block';
+                  infoWindow.open(map, marker);
+
+                  var customOverlay = createCustomOverlay(title);
+                  customOverlay.bindTo('position', marker, 'position');
+                  customOverlay.setMap(map);
+
+                  customOverlay.onAdd = function () {
+                    var panes = this.getPanes();
+                    var div = document.createElement('div');
+                    div.appendChild(weatherIconElement);
+                    panes.overlayImage.appendChild(div);
+                  };
+                },
+                error: function (error) {
+                  console.error('날씨 정보를 가져오는 데 실패했습니다.');
+                },
+              });
+            });
+          }
+
+          addClickEvent(marker);
+          markers.push(marker);
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <button onclick="showMarkers()">Show Markers</button>
+
+    <div id="map"></div>
+
+    <img
+      id="weatherIcon"
+      src=""
+      alt="Weather Icon"
+      class="weather"
+      style="display: none"
+    />
+  </body>
+</html>

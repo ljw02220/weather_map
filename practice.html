@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Weather Map - Mobilink</title>
+    <link rel="stylesheet" href="styles.css" />
+
+    <!-- Google 지도 API 사용 스크립트 추가 -->
+    <script
+      src="https://maps.googleapis.com/maps/api/js?key=YOUR_GOOGLE_MAPS_API_KEY&callback=initMap"
+      async
+      defer
+    ></script>
+
+    <!-- jQuery 추가 -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+    <style>
+      /* 스타일 추가 */
+      .weather {
+        max-width: 50px;
+        max-height: 50px;
+      }
+    </style>
+  </head>
+  <body>
+    <button onclick="showMarkers()">Show Markers</button>
+
+    <div id="map"></div>
+
+    <script>
+      var map;
+      var markers = [];
+      var infoWindow;
+      var weatherIconElement;
+
+      function initMap() {
+        var mapOptions = {
+          center: { lat: 37.562161, lng: 127.035199 },
+          zoom: 12,
+        };
+        map = new google.maps.Map(document.getElementById('map'), mapOptions);
+        infoWindow = new google.maps.InfoWindow();
+        weatherIconElement = document.getElementById('weatherIcon');
+        showMarkers();
+      }
+
+      var heatWarningElement; // 전역 변수로 선언하여 이전 경보 엘리먼트를 저장
+      var rainWarningElement;
+
+      function createCustomOverlay(title, weatherDescription) {
+        var overlay = new google.maps.OverlayView();
+        overlay.onAdd = function () {
+          var panes = this.getPanes();
+          var div = document.createElement('div');
+          var weatherIconUrl = getWeatherIconUrl(weatherDescription);
+          div.innerHTML =
+            '<img src="' +
+            weatherIconUrl +
+            '" alt="Weather Icon" class="weather" />';
+          panes.overlayImage.appendChild(div);
+        };
+        return overlay;
+      }
+
+      function getWeatherIconUrl(weatherDescription) {
+        var baseUrl = 'icon/'; // 아이콘 파일이 있는 디렉토리 경로
+        if (weatherDescription.includes('clear')) {
+          return baseUrl + 'clear.png';
+        } else if (weatherDescription.includes('cloud')) {
+          return baseUrl + 'cloud.png';
+        } else if (weatherDescription.includes('rain')) {
+          return baseUrl + 'rain.png';
+        } else if (weatherDescription.includes('thunderstorm')) {
+          return baseUrl + 'thunderstorm.png';
+        } else {
+          return baseUrl + 'unknown.png'; // 알 수 없는 날씨의 기본 아이콘
+        }
+      }
+
+      function showHeatWarning(temperature) {
+        // 이전 경보 엘리먼트 제거
+        if (heatWarningElement) {
+          heatWarningElement.parentNode.removeChild(heatWarningElement);
+        }
+        // ... (이전 답변에서의 코드 복사)
+      }
+
+      function showRainWarning(weatherCondition) {
+        // 호우 주의보 엘리먼트 제거
+        if (rainWarningElement) {
+          rainWarningElement.parentNode.removeChild(rainWarningElement);
+        }
+        // ... (이전 답변에서의 코드 복사)
+      }
+
+      function showMarkers() {
+        var pharmacys = [
+          // ... (기존의 약국 데이터 복사)
+        ];
+
+        for (var i = 0; i < pharmacys.length; i++) {
+          var title = pharmacys[i][0];
+          var lat = pharmacys[i][1];
+          var lng = pharmacys[i][2];
+
+          var marker = new google.maps.Marker({
+            position: { lat: lat, lng: lng },
+            map: map,
+            title: title,
+          });
+
+          function addClickEvent(marker) {
+            marker.addListener('mouseover', function () {
+              var lat = this.getPosition().lat();
+              var lng = this.getPosition().lng();
+
+              $.ajax({
+                url:
+                  'https://api.openweathermap.org/data/2.5/weather?units=metric&lat=' +
+                  lat +
+                  '&lon=' +
+                  lng +
+                  '&appid=5c3c3fc97003576692a15597ad94eba6',
+                type: 'GET',
+                dataType: 'json',
+                success: function (data) {
+                  var icon = weatherIconElement.src;
+                  var weatherDescription = data.weather[0].description;
+                  var temperature = data.main.temp;
+
+                  infoWindow.setContent(
+                    icon +
+                      weatherIconElement +
+                      '날씨: ' +
+                      weatherDescription +
+                      '<br>온도: ' +
+                      temperature.toFixed(1) +
+                      '°C'
+                  );
+
+                  weatherIconElement.src =
+                    getWeatherIconUrl(weatherDescription);
+
+                  // 폭염 여부 표시
+                  showHeatWarning(temperature);
+                  showRainWarning(weatherDescription);
+
+                  document.querySelector('.weather').style.display = 'block';
+                  infoWindow.open(map, marker);
+
+                  var customOverlay = createCustomOverlay(
+                    title,
+                    weatherDescription
+                  );
+                  customOverlay.bindTo('position', marker, 'position');
+                  customOverlay.setMap(map);
+                },
+                error: function (error) {
+                  console.error('날씨 정보를 가져오는 데 실패했습니다.');
+                },
+              });
+            });
+          }
+
+          addClickEvent(marker);
+          markers.push(marker);
+        }
+      }
+    </script>
+  </body>
+</html>
